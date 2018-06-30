@@ -103,7 +103,7 @@ const char* numberName[MAX_CARD_NUMBER] = {
 };
 
 
-void printHand(const char* playerName, const Hand* pHand);
+void printHand(const char* playerName, const Hand* pHand, bool isOnlyOne);
 Error initCards(Cards* pCards);
 Error initDeck(const Cards* cards, Deck* pDeck);
 Error initHand(Hand* pHand);
@@ -124,84 +124,115 @@ int main() {
 		(void)initCards(&cards);
 		(void)initDeck(&cards, &deck);
 		(void)initDeck(&cards, &deck);
-		(void)initHand(&playerHand);
-		(void)initHand(&dealerHand);
-	}
-	if (SUCCESS(r)) {
 		(void)shuffle(&deck, 100);
 	}
 	if (SUCCESS(r)) {
-		for (int i = 0; i < 2; i++) {
-			(void)pullCard(&deck, &playerHand);
-			(void)pullCard(&deck, &dealerHand);
-		}
-	}
-	if (SUCCESS(r)) {
-		printf("ゲームスタート\n");
 		bool isEnd = FALSE;
-		char c;
 		while (!isEnd) {
 			if (SUCCESS(r)) {
-				printHand("あなた", &playerHand);
-				printf("まだ引きますか？  y/N: ");
-				c = getchar();
-				while ((getchar()) != '\n');
-				printf("\n");
-				isEnd = (c != 'y' && c != 'Y');
-				if (!isEnd) {
-					r = pullCard(&deck, &playerHand);
+				(void)initHand(&playerHand);
+				(void)initHand(&dealerHand);
+			}
+			if (SUCCESS(r)) {
+				for (int i = 0; i < 2; i++) {
+					(void)pullCard(&deck, &playerHand);
+					(void)pullCard(&deck, &dealerHand);
 				}
 			}
 			if (SUCCESS(r)) {
-				if (calcScore(&playerHand) < 0) {
-					printHand("あなた", &playerHand);
-					printf("%dを超えました、ゲームオーバーです。\n", TARGET_SCORE);
-					isEnd = TRUE;
-					r = ERROR_GAME_OVER;
+				printf("Geme start.\n");
+				bool isEnd = FALSE;
+				char c;
+				printHand("Dealer", &dealerHand, TRUE);
+				while (!isEnd) {
+					if (SUCCESS(r)) {
+						printHand("You", &playerHand, FALSE);
+						printf("Hit? y/N: ");
+						c = getchar();
+						while ((getchar()) != '\n');
+						printf("\n");
+						isEnd = (c != 'y' && c != 'Y');
+						if (!isEnd) {
+							r = pullCard(&deck, &playerHand);
+						}
+					}
+					if (SUCCESS(r)) {
+						if (calcScore(&playerHand) < 0) {
+							printHand("You", &playerHand, FALSE);
+							printf("Burst!!! You lose.\n");
+							isEnd = TRUE;
+							r = ERROR_GAME_OVER;
+						}
+					}
+					if (FAILURE(r)) {
+						break;
+					}
+				}
+			}
+			if (SUCCESS(r)) {
+				while (0 < calcScore(&dealerHand) && calcScore(&dealerHand) < 17) {
+					r = pullCard(&deck, &dealerHand);
+					if (FAILURE(r)) {
+						break;
+					}
+				}
+			}
+			if (SUCCESS(r)) {
+				char playerScoreStr[32];
+				char dealerScoreStr[32];
+				snprintf(playerScoreStr, sizeof(playerScoreStr), "%d", calcScore(&playerHand));
+				snprintf(dealerScoreStr, sizeof(dealerScoreStr), "%d", calcScore(&dealerHand));
+				printHand("You", &playerHand, FALSE);
+				printHand("Dealer", &dealerHand, FALSE);
+				printf("You=%s : Dealer=%s\n",
+					calcScore(&playerHand) < 0 ? "Burst" : playerScoreStr,
+					calcScore(&dealerHand) < 0 ? "Burst" : dealerScoreStr);
+				if (calcScore(&playerHand) > calcScore(&dealerHand)) {
+					printf("You win.\n");
+				}
+				else if (calcScore(&playerHand) == calcScore(&dealerHand)) {
+					printf("Draw.\n");
+				}
+				else {
+					printf("You lose.\n");
 				}
 			}
 			if (FAILURE(r)) {
-				break;
+				if (r != ERROR_GAME_OVER) {
+					LOGD("probably bug.\n");
+					break;
+				} else {
+					r = ERROR_NONE;
+				}
+			}
+			if (SUCCESS(r)) {
+				if (deck.numCard > 20) {
+					char c;
+					printf("Continue? y/N: ");
+					c = getchar();
+					while ((getchar()) != '\n');
+					isEnd = (c != 'y' && c != 'Y');
+					printf("\n");
+				} else {
+					printf("Maybe next time.\n");
+					isEnd = TRUE;
+					getchar();
+				}
 			}
 		}
 	}
-	if (SUCCESS(r)) {
-		while (0 < calcScore(&dealerHand) && calcScore(&dealerHand) < 17) {
-			r = pullCard(&deck, &dealerHand);
-			if (FAILURE(r)) {
-				break;
-			}
-		}
-	}
-	if (SUCCESS(r)) {
-		printHand("あなた", &playerHand);
-		printHand("ディーラー", &dealerHand);
-		printf("あなた=%d : ディーラー=%d\n", calcScore(&playerHand), calcScore(&dealerHand));
-		if (calcScore(&playerHand) > calcScore(&dealerHand)) {
-			printf("あなたの勝ちです。\n");
-		}else if (calcScore(&playerHand) == calcScore(&dealerHand)) {
-			printf("引き分けです。\n");
-		}
-		else {
-			printf("あなたの負けです。\n");
-		}
-	}
-	if (FAILURE(r)) {
-		if (r != ERROR_GAME_OVER) {
-			LOGD("なんかバグってる\n");
-		}
-	}
-	getchar();
 }
 
-void printHand(const char* playerName, const Hand* pHand) {
-	printf("%sのカードは\n", playerName);
+void printHand(const char* playerName, const Hand* pHand, bool isOnlyOne) {
+	printf("%s:\n", playerName);
 	for (int i = 0; i < pHand->numCard; i++) {
-		printf("  %sの%s\n",
+		printf("  %s %s\n",
 			getMarkName(pHand->cards[i]->mark),
 			getNumberName(pHand->cards[i]->num));
+		if (isOnlyOne) {
+			break;
+		}
 	}
-	printf("です。\n");
 }
 
 Error initCards(Cards* pCards) {
@@ -355,7 +386,7 @@ const char* getNumberName(int number) {
 const char* getMarkName(Mark mark) {
 	const char* name = NULL;
 	if (mark < NUN_OF_ELEMENTS(markName)) {
-		name = numberName[mark];
+		name = markName[mark];
 	}
 	return name;
 }
