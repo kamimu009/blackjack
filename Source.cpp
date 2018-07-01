@@ -27,6 +27,8 @@ typedef enum {
 #define MAX_CARD_NUMBER 13
 #define DECK_NUM	 (13 * MARK_MAX)
 #define TARGET_SCORE 21
+#define INIT_CARD_NUM 2
+#define DEALER_STAY_SCORE 17
 
 #define SUCCESS(r) ((r) == ERROR_NONE)
 #define FAILURE(r) (!SUCCESS(r))
@@ -37,7 +39,8 @@ typedef enum {
 #else
 #define LOGD(fmt, ...)
 #endif
-#define LOGI(fmt, ...) (printf("%s(%d) [INFO]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
+#define LOGI(fmt, ...) (printf("%s(%d) [INFO ]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
+#define LOGE(fmt, ...) (printf("%s(%d) [ERROR]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
 
 typedef struct {
 	int scores[2];
@@ -104,14 +107,17 @@ const char* numberName[MAX_CARD_NUMBER] = {
 
 
 void printHand(const char* playerName, const Hand* pHand, bool isOnlyOne);
+void printResult(const Hand* pPlayerHand, const Hand* pDealerHand);
 Error initCards(Cards* pCards);
 Error initDeck(const Cards* cards, Deck* pDeck);
 Error initHand(Hand* pHand);
 Error shuffle(Deck* pDeck, int shuffleNum);
 Error pullCard(Deck* pDeck, Hand* pHand);
-int calcScore(Hand* pHand);
+int calcScore(const Hand* pHand);
 const char* getNumberName(int number);
 const char* getMarkName(Mark mark);
+bool getYesNoInput(const char* pComment);
+bool isBurst(const Hand* pHand);
 
 
 int main() {
@@ -134,33 +140,28 @@ int main() {
 				(void)initHand(&dealerHand);
 			}
 			if (SUCCESS(r)) {
-				for (int i = 0; i < 2; i++) {
+				for (int i = 0; i < INIT_CARD_NUM; i++) {
 					(void)pullCard(&deck, &playerHand);
 					(void)pullCard(&deck, &dealerHand);
 				}
 			}
 			if (SUCCESS(r)) {
+				bool stay = FALSE;
 				printf("Geme start.\n");
-				bool isEnd = FALSE;
-				char c;
 				printHand("Dealer", &dealerHand, TRUE);
-				while (!isEnd) {
+				while (!stay) {
 					if (SUCCESS(r)) {
 						printHand("You", &playerHand, FALSE);
-						printf("Hit? y/N: ");
-						c = getchar();
-						while ((getchar()) != '\n');
-						printf("\n");
-						isEnd = (c != 'y' && c != 'Y');
-						if (!isEnd) {
+						stay = !getYesNoInput("Hit?");
+						if (!stay) {
 							r = pullCard(&deck, &playerHand);
 						}
 					}
 					if (SUCCESS(r)) {
-						if (calcScore(&playerHand) < 0) {
+						if (isBurst(&playerHand)) {
 							printHand("You", &playerHand, FALSE);
 							printf("Burst!!! You lose.\n");
-							isEnd = TRUE;
+							stay = TRUE;
 							r = ERROR_GAME_OVER;
 						}
 					}
@@ -170,7 +171,7 @@ int main() {
 				}
 			}
 			if (SUCCESS(r)) {
-				while (0 < calcScore(&dealerHand) && calcScore(&dealerHand) < 17) {
+				while (!isBurst(&dealerHand) && calcScore(&dealerHand) < DEALER_STAY_SCORE) {
 					r = pullCard(&deck, &dealerHand);
 					if (FAILURE(r)) {
 						break;
@@ -178,41 +179,20 @@ int main() {
 				}
 			}
 			if (SUCCESS(r)) {
-				char playerScoreStr[32];
-				char dealerScoreStr[32];
-				snprintf(playerScoreStr, sizeof(playerScoreStr), "%d", calcScore(&playerHand));
-				snprintf(dealerScoreStr, sizeof(dealerScoreStr), "%d", calcScore(&dealerHand));
-				printHand("You", &playerHand, FALSE);
-				printHand("Dealer", &dealerHand, FALSE);
-				printf("You=%s : Dealer=%s\n",
-					calcScore(&playerHand) < 0 ? "Burst" : playerScoreStr,
-					calcScore(&dealerHand) < 0 ? "Burst" : dealerScoreStr);
-				if (calcScore(&playerHand) > calcScore(&dealerHand)) {
-					printf("You win.\n");
-				}
-				else if (calcScore(&playerHand) == calcScore(&dealerHand)) {
-					printf("Draw.\n");
-				}
-				else {
-					printf("You lose.\n");
-				}
+				printResult(&playerHand, &dealerHand);
 			}
 			if (FAILURE(r)) {
 				if (r != ERROR_GAME_OVER) {
-					LOGD("probably bug.\n");
+					LOGE("probably bug.\n");
 					break;
 				} else {
 					r = ERROR_NONE;
 				}
 			}
 			if (SUCCESS(r)) {
+				printf("Geme end.\n");
 				if (deck.numCard > 20) {
-					char c;
-					printf("Continue? y/N: ");
-					c = getchar();
-					while ((getchar()) != '\n');
-					isEnd = (c != 'y' && c != 'Y');
-					printf("\n");
+					isEnd = !getYesNoInput("Continue?");
 				} else {
 					printf("Maybe next time.\n");
 					isEnd = TRUE;
@@ -235,10 +215,34 @@ void printHand(const char* playerName, const Hand* pHand, bool isOnlyOne) {
 	}
 }
 
+void printResult(const Hand* pPlayerHand, const Hand* pDealerHand) {
+	char playerScoreStr[32];
+	char dealerScoreStr[32];
+	if (pPlayerHand != NULL && pDealerHand != NULL) {
+		snprintf(playerScoreStr, sizeof(playerScoreStr), "%d", calcScore(pPlayerHand));
+		snprintf(dealerScoreStr, sizeof(dealerScoreStr), "%d", calcScore(pDealerHand));
+		printHand("Dealer", pDealerHand, FALSE);
+		printHand("You", pPlayerHand, FALSE);
+		printf("You=%s : Dealer=%s\n",
+			isBurst(pPlayerHand) ? "Burst" : playerScoreStr,
+			isBurst(pDealerHand) ? "Burst" : dealerScoreStr);
+		if (calcScore(pPlayerHand) > calcScore(pDealerHand)) {
+			printf("You win.\n");
+		} else if (calcScore(pPlayerHand) == calcScore(pDealerHand)) {
+			printf("Draw.\n");
+		} else {
+			printf("You lose.\n");
+		}
+	} else {
+		LOGE("Invalid argument. pPlayerHand=%p, pDealerHand=%p", pPlayerHand, pDealerHand);
+	}
+}
+
 Error initCards(Cards* pCards) {
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pCards == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -258,6 +262,7 @@ Error initDeck(const Cards* pCards, Deck* pDeck) {
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pCards == NULL || pDeck == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -276,6 +281,7 @@ Error initHand(Hand* pHand) {
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pHand == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -292,6 +298,7 @@ Error shuffle(Deck* pDeck, int shuffleNum) {
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pDeck == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -322,6 +329,7 @@ Error pullCard(Deck* pDeck, Hand* pHand) {
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pDeck == NULL || pHand == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -339,11 +347,12 @@ Error pullCard(Deck* pDeck, Hand* pHand) {
 	return r;
 }
 
-int calcScore(Hand* pHand) {
+int calcScore(const Hand* pHand) {
 	int highScore = -1;
 	Error r = ERROR_NONE;
 	if (SUCCESS(r)) {
 		if (pHand == NULL) {
+			LOGE("Invalid argument.");
 			r = ERROR_INVALID_ARG;
 		}
 	}
@@ -379,6 +388,8 @@ const char* getNumberName(int number) {
 	const char* name = NULL;
 	if (number < NUN_OF_ELEMENTS(numberName)) {
 		name = numberName[number];
+	} else {
+		LOGE("Invalid argument.");
 	}
 	return name;
 }
@@ -387,6 +398,31 @@ const char* getMarkName(Mark mark) {
 	const char* name = NULL;
 	if (mark < NUN_OF_ELEMENTS(markName)) {
 		name = markName[mark];
+	} else {
+		LOGE("Invalid argument.");
 	}
 	return name;
+}
+
+bool getYesNoInput(const char* pComment) {
+	char input = 'n';
+	if (pComment != NULL) {
+		printf("%s y/N: ", pComment);
+		input = getchar();
+		while ((getchar()) != '\n');
+		printf("\n");
+	} else {
+		LOGE("Invalid argument.");
+	}
+	return (input == 'y' || input == 'Y');
+}
+
+bool isBurst(const Hand* pHand) {
+	bool r = FALSE;
+	if (pHand != NULL) {
+		r = calcScore(pHand) < 0;
+	} else {
+		LOGE("Invalid argument.");
+	}
+	return r;
 }
