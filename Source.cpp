@@ -3,6 +3,8 @@
 #include <time.h>
 
 //#define ENABLE_LOGD 1
+#define ENABLE_LOGI 1
+#define ENABLE_LOGE 1
 
 typedef enum {
     ERROR_NONE,
@@ -35,12 +37,20 @@ typedef enum {
 #define NUN_OF_ELEMENTS(x) (sizeof((x)) / sizeof((x)[0]))
 
 #if ENABLE_LOGD
-#define LOGD(fmt, ...) (printf("%s(%d) [DEBUG]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
+#define LOGD(fmt, ...) (printf("%s(%d) [DEBUG]: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__))
 #else
 #define LOGD(fmt, ...)
 #endif
-#define LOGI(fmt, ...) (printf("%s(%d) [INFO ]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
-#define LOGE(fmt, ...) (printf("%s(%d) [ERROR]: " fmt "\n", __FUNCTION__, __LINE__, __VA_ARGS__))
+#if ENABLE_LOGI
+#define LOGI(fmt, ...) (printf("%s(%d) [INFO ]: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__))
+#else
+#define LOGI(fmt, ...)
+#endif
+#if ENABLE_LOGE
+#define LOGE(fmt, ...) (printf("%s(%d) [ERROR]: " fmt "\n", __func__, __LINE__, ##__VA_ARGS__))
+#else
+#define LOGE(fmt, ...)
+#endif
 
 typedef struct {
     int scores[2];
