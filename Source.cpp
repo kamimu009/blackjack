@@ -161,7 +161,7 @@ int main() {
                 while (!stay) {
                     if (SUCCESS(r)) {
                         printHand("You", &playerHand, FALSE);
-                        stay = !getYesNoInput("Hit?");
+                        stay = !getYesNoInput("Draw cards?");
                         if (!stay) {
                             r = pullCard(&deck, &playerHand);
                         }
