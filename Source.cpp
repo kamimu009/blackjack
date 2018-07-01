@@ -129,7 +129,6 @@ int main() {
 	if (SUCCESS(r)) {
 		(void)initCards(&cards);
 		(void)initDeck(&cards, &deck);
-		(void)initDeck(&cards, &deck);
 		(void)shuffle(&deck, 100);
 	}
 	if (SUCCESS(r)) {
