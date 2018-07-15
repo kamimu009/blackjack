@@ -432,3 +432,4 @@ bool isBurst(const Hand* pHand) {
     }
     return r;
 }
+
