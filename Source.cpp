@@ -23,14 +23,12 @@ typedef enum {
     MARK_MAX
 } Mark;
 
-#define TRUE (1 == 1)
-#define FALSE (!TRUE)
-
 #define MAX_CARD_NUMBER 13
 #define DECK_NUM	 (13 * MARK_MAX)
 #define TARGET_SCORE 21
 #define INIT_CARD_NUM 2
 #define DEALER_STAY_SCORE 17
+#define SCORE_UNDEF -1
 
 #define SUCCESS(r) ((r) == ERROR_NONE)
 #define FAILURE(r) (!SUCCESS(r))
@@ -77,19 +75,19 @@ typedef struct {
 } Hand;
 
 const CardMeta cardMeta[MAX_CARD_NUMBER] = {
-    { {  1, 11 } },
-    { {  2, -1 } },
-    { {  3, -1 } },
-    { {  4, -1 } },
-    { {  5, -1 } },
-    { {  6, -1 } },
-    { {  7, -1 } },
-    { {  8, -1 } },
-    { {  9, -1 } },
-    { { 10, -1 } },
-    { { 10, -1 } },
-    { { 10, -1 } },
-    { { 10, -1 } },
+    { { 1,  11          } },
+    { { 2,  SCORE_UNDEF } },
+    { { 3,  SCORE_UNDEF } },
+    { { 4,  SCORE_UNDEF } },
+    { { 5,  SCORE_UNDEF } },
+    { { 6,  SCORE_UNDEF } },
+    { { 7,  SCORE_UNDEF } },
+    { { 8,  SCORE_UNDEF } },
+    { { 9,  SCORE_UNDEF } },
+    { { 10, SCORE_UNDEF } },
+    { { 10, SCORE_UNDEF } },
+    { { 10, SCORE_UNDEF } },
+    { { 10, SCORE_UNDEF } },
 };
 
 const char* markName[MARK_MAX] = {
@@ -142,7 +140,7 @@ int main() {
         (void)shuffle(&deck, 100);
     }
     if (SUCCESS(r)) {
-        bool isEnd = FALSE;
+        bool isEnd = false;
         while (!isEnd) {
             if (SUCCESS(r)) {
                 (void)initHand(&playerHand);
@@ -155,12 +153,12 @@ int main() {
                 }
             }
             if (SUCCESS(r)) {
-                bool stay = FALSE;
+                bool stay = false;
                 printf("Geme start.\n");
-                printHand("Dealer", &dealerHand, TRUE);
+                printHand("Dealer", &dealerHand, true);
                 while (!stay) {
                     if (SUCCESS(r)) {
-                        printHand("You", &playerHand, FALSE);
+                        printHand("You", &playerHand, false);
                         stay = !getYesNoInput("Draw cards?");
                         if (!stay) {
                             r = pullCard(&deck, &playerHand);
@@ -168,9 +166,9 @@ int main() {
                     }
                     if (SUCCESS(r)) {
                         if (isBurst(&playerHand)) {
-                            printHand("You", &playerHand, FALSE);
+                            printHand("You", &playerHand, false);
                             printf("Burst!!! You lose.\n");
-                            stay = TRUE;
+                            stay = true;
                             r = ERROR_GAME_OVER;
                         }
                     }
@@ -204,7 +202,7 @@ int main() {
                     isEnd = !getYesNoInput("Continue?");
                 } else {
                     printf("Maybe next time.\n");
-                    isEnd = TRUE;
+                    isEnd = true;
                     getchar();
                 }
             }
@@ -230,8 +228,8 @@ void printResult(const Hand* pPlayerHand, const Hand* pDealerHand) {
     if (pPlayerHand != NULL && pDealerHand != NULL) {
         snprintf(playerScoreStr, sizeof(playerScoreStr), "%d", calcScore(pPlayerHand));
         snprintf(dealerScoreStr, sizeof(dealerScoreStr), "%d", calcScore(pDealerHand));
-        printHand("Dealer", pDealerHand, FALSE);
-        printHand("You", pPlayerHand, FALSE);
+        printHand("Dealer", pDealerHand, false);
+        printHand("You", pPlayerHand, false);
         printf("You=%s : Dealer=%s\n",
             isBurst(pPlayerHand) ? "Burst" : playerScoreStr,
             isBurst(pDealerHand) ? "Burst" : dealerScoreStr);
@@ -356,7 +354,7 @@ Error pullCard(Deck* pDeck, Hand* pHand) {
 }
 
 int calcScore(const Hand* pHand) {
-    int highScore = -1;
+    int highScore = SCORE_UNDEF;
     Error r = ERROR_NONE;
     if (SUCCESS(r)) {
         if (pHand == NULL) {
@@ -380,7 +378,7 @@ int calcScore(const Hand* pHand) {
                     LOGD("scoreIndexArray[%d]=%d, dec=%d, pattern=%d", k, scoreIndexArray[k], dec, pattern);
                 }
                 for (int k = 0; k < pHand->numCard; k++) {
-                    score += cardMeta[pHand->cards[k]->num].scores[scoreIndexArray[k]] < 0 ?
+                    score += cardMeta[pHand->cards[k]->num].scores[scoreIndexArray[k]] == SCORE_UNDEF ?
                         cardMeta[pHand->cards[k]->num].scores[0] :
                         cardMeta[pHand->cards[k]->num].scores[scoreIndexArray[k]];
                 }
@@ -426,7 +424,7 @@ bool getYesNoInput(const char* pComment) {
 }
 
 bool isBurst(const Hand* pHand) {
-    bool r = FALSE;
+    bool r = false;
     if (pHand != NULL) {
         r = calcScore(pHand) < 0;
     } else {
